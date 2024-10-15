@@ -368,7 +368,8 @@ func (ir *IstioRouter) reconcileVirtualService(canary *flaggerv1.Canary) error {
 			if _, ok := vtClone.Annotations[kubectlAnnotation]; !ok && specDiff != "" {
 				b, err := json.Marshal(virtualService.Spec)
 				if err != nil {
-					ir.logger.Warnf("Unable to marshal VS %s for orig-configuration annotation", virtualService.Name)
+					ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+						Warnf("Unable to marshal VS %s for orig-configuration annotation", virtualService.Name)
 				}
 
 				if vtClone.ObjectMeta.Annotations == nil {
@@ -408,7 +409,8 @@ func (ir *IstioRouter) GetRoutes(canary *flaggerv1.Canary) (
 	}
 
 	if isTcp(canary) {
-		ir.logger.Infof("Canary %s.%s uses TCP service", canary.Name, canary.Namespace)
+		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			Infof("Canary %s.%s uses TCP service", canary.Name, canary.Namespace)
 		var tcpRoute istiov1beta1.TCPRoute
 		for _, tcp := range vs.Spec.Tcp {
 			for _, r := range tcp.Route {
@@ -437,7 +439,8 @@ func (ir *IstioRouter) GetRoutes(canary *flaggerv1.Canary) (
 		return
 	}
 
-	ir.logger.Infof("Canary %s.%s uses HTTP service", canary.Name, canary.Namespace)
+	ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		Infof("Canary %s.%s uses HTTP service", canary.Name, canary.Namespace)
 
 	var httpRoute istiov1beta1.HTTPRoute
 	for _, http := range vs.Spec.Http {
@@ -734,7 +737,8 @@ func (ir *IstioRouter) Finalize(canary *flaggerv1.Canary) error {
 				apexName, canary.Namespace, configAnnotation)
 		}
 	} else {
-		ir.logger.Warnf("VirtualService %s.%s original configuration not found, unable to revert", apexName, canary.Namespace)
+		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			Warnf("VirtualService %s.%s original configuration not found, unable to revert", apexName, canary.Namespace)
 		return nil
 	}
 

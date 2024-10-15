@@ -211,7 +211,8 @@ func (ct *ConfigTracker) GetTargetConfigs(cd *flaggerv1.Canary) (map[string]Conf
 			if required {
 				return nil, fmt.Errorf("configmap %s.%s get query error: %w", configMapName, cd.Namespace, err)
 			}
-			ct.Logger.Errorf("configmap %s.%s get query failed: %w", configMapName, cd.Namespace, err)
+			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				Errorf("configmap %s.%s get query failed: %w", configMapName, cd.Namespace, err)
 			continue
 		}
 		if config != nil {
@@ -225,7 +226,8 @@ func (ct *ConfigTracker) GetTargetConfigs(cd *flaggerv1.Canary) (map[string]Conf
 			if required {
 				return nil, fmt.Errorf("secret %s.%s get query error: %v", secretName, cd.Namespace, err)
 			}
-			ct.Logger.Errorf("secret %s.%s get query failed: %v", secretName, cd.Namespace, err)
+			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				Errorf("secret %s.%s get query failed: %v", secretName, cd.Namespace, err)
 			continue
 		}
 		if secret != nil {

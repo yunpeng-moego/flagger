@@ -47,32 +47,32 @@ func NewRecorder(controller string, register bool) Recorder {
 		Name:      "canary_duration_seconds",
 		Help:      "Seconds spent performing canary analysis.",
 		Buckets:   prometheus.DefBuckets,
-	}, []string{"name", "namespace"})
+	}, []string{"canary_name", "primary_name", "canary_namespace"})
 
 	total := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: controller,
 		Name:      "canary_total",
 		Help:      "Total number of canary object",
-	}, []string{"namespace"})
+	}, []string{"canary_namespace"})
 
 	// 0 - running, 1 - successful, 2 - failed
 	status := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: controller,
 		Name:      "canary_status",
 		Help:      "Last canary analysis result",
-	}, []string{"name", "namespace"})
+	}, []string{"canary_name", "primary_name", "canary_namespace"})
 
 	weight := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: controller,
 		Name:      "canary_weight",
 		Help:      "The virtual service destination weight current value",
-	}, []string{"workload", "namespace"})
+	}, []string{"workload", "canary_name", "primary_name", "canary_namespace"})
 
 	analysis := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: controller,
 		Name:      "canary_metric_analysis",
 		Help:      "Last canary analysis result per metric",
-	}, []string{"name", "namespace", "metric"})
+	}, []string{"canary_name", "primary_name", "canary_namespace", "canary_metric"})
 
 	if register {
 		prometheus.MustRegister(info)
@@ -95,12 +95,12 @@ func NewRecorder(controller string, register bool) Recorder {
 
 // SetInfo sets the version and mesh provider labels
 func (cr *Recorder) SetInfo(version string, meshProvider string) {
-	cr.info.WithLabelValues(version, meshProvider).Set(1)
+	cr.info.WithLabelValues(version, meshProvider).Set(float64(time.Now().UnixNano()))
 }
 
 // SetDuration sets the time spent in seconds performing canary analysis
 func (cr *Recorder) SetDuration(cd *flaggerv1.Canary, duration time.Duration) {
-	cr.duration.WithLabelValues(cd.Spec.TargetRef.Name, cd.Namespace).Observe(duration.Seconds())
+	cr.duration.WithLabelValues(cd.Spec.TargetRef.Name, fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace).Observe(duration.Seconds())
 }
 
 // SetTotal sets the total number of canaries per namespace
@@ -109,7 +109,7 @@ func (cr *Recorder) SetTotal(namespace string, total int) {
 }
 
 func (cr *Recorder) SetAnalysis(cd *flaggerv1.Canary, metricTemplateName string, val float64) {
-	cr.analysis.WithLabelValues(cd.Spec.TargetRef.Name, cd.Namespace, metricTemplateName).Set(val)
+	cr.analysis.WithLabelValues(cd.Spec.TargetRef.Name, fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace, metricTemplateName).Set(val)
 }
 
 // SetStatus sets the last known canary analysis status
@@ -123,11 +123,11 @@ func (cr *Recorder) SetStatus(cd *flaggerv1.Canary, phase flaggerv1.CanaryPhase)
 	default:
 		status = 1
 	}
-	cr.status.WithLabelValues(cd.Spec.TargetRef.Name, cd.Namespace).Set(float64(status))
+	cr.status.WithLabelValues(cd.Spec.TargetRef.Name, fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace).Set(float64(status))
 }
 
 // SetWeight sets the weight values for primary and canary destinations
 func (cr *Recorder) SetWeight(cd *flaggerv1.Canary, primary int, canary int) {
-	cr.weight.WithLabelValues(fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace).Set(float64(primary))
-	cr.weight.WithLabelValues(cd.Spec.TargetRef.Name, cd.Namespace).Set(float64(canary))
+	cr.weight.WithLabelValues(fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Spec.TargetRef.Name, fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace).Set(float64(primary))
+	cr.weight.WithLabelValues(cd.Spec.TargetRef.Name, cd.Spec.TargetRef.Name, fmt.Sprintf("%s-primary", cd.Spec.TargetRef.Name), cd.Namespace).Set(float64(canary))
 }

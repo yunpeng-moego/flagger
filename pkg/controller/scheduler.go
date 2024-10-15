@@ -225,6 +225,12 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 	if err != nil {
 		c.recordEventWarningf(cd, "%v", err)
 		if !retriable {
+			c.recordEventWarningf(cd, "Rolling back %s.%s: Progress deadline exceeded. Primary workload creation failed: %v",
+				cd.Name, cd.Namespace, err)
+
+			c.alert(cd, fmt.Sprintf("Progress deadline exceeded. Primary workload creation failed: %v", err),
+				true, flaggerv1.SeverityError)
+
 			c.rollback(cd, canaryController, meshRouter, scalerReconciler)
 		}
 		return
@@ -294,8 +300,12 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 	if !cd.SkipAnalysis() {
 		retriable, err := canaryController.IsPrimaryReady(cd)
 		if err != nil {
-			c.recordEventWarningf(cd, "%v", err)
+			c.recordEventWarningf(cd, "Primary workload readiness check failed: %v", err)
 			if !retriable {
+				c.recordEventWarningf(cd, "Rolling back %s.%s: Progress deadline exceeded. Primary workload is not ready: %v",
+					cd.Name, cd.Namespace, err)
+				c.alert(cd, fmt.Sprintf("Progress deadline exceeded. Primary workload is not ready: %v", err),
+					true, flaggerv1.SeverityError)
 				c.rollback(cd, canaryController, meshRouter, scalerReconciler)
 			}
 			return
@@ -345,8 +355,12 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 	// check canary status
 	retriable, err = canaryController.IsCanaryReady(cd)
 	if err != nil {
-		c.recordEventWarningf(cd, "%v", err)
+		c.recordEventWarningf(cd, "Error checking canary workload status: %v", err)
 		if !retriable {
+			c.recordEventWarningf(cd, "Rolling back %s.%s: Error checking canary workload status: %v",
+				cd.Name, cd.Namespace, err)
+			c.alert(cd, fmt.Sprintf("Error checking canary workload status: %v", err),
+				true, flaggerv1.SeverityWarn)
 			c.rollback(cd, canaryController, meshRouter, scalerReconciler)
 		}
 		return
@@ -363,7 +377,7 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 		cd.Status.Phase == flaggerv1.CanaryPhaseWaitingPromotion {
 		if ok := c.runRollbackHooks(cd, cd.Status.Phase); ok {
 			c.recordEventWarningf(cd, "Rolling back %s.%s manual webhook invoked", cd.Name, cd.Namespace)
-			c.alert(cd, "Rolling back manual webhook invoked", false, flaggerv1.SeverityWarn)
+			c.alert(cd, "Rolling back manual webhook invoked", true, flaggerv1.SeverityWarn)
 			c.rollback(cd, canaryController, meshRouter, scalerReconciler)
 			return
 		}
@@ -403,7 +417,7 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 		c.runPostRolloutHooks(cd, flaggerv1.CanaryPhaseSucceeded)
 		c.recordEventInfof(cd, "Promotion completed! Scaling down %s.%s", cd.Spec.TargetRef.Name, cd.Namespace)
 		c.alert(cd, "Canary analysis completed successfully, promotion finished.",
-			false, flaggerv1.SeverityInfo)
+			true, flaggerv1.SeverityInfo)
 		return
 	}
 
@@ -413,8 +427,8 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 		if !retriable {
 			c.recordEventWarningf(cd, "Rolling back %s.%s progress deadline exceeded %v",
 				cd.Name, cd.Namespace, err)
-			c.alert(cd, fmt.Sprintf("Progress deadline exceeded %v", err),
-				false, flaggerv1.SeverityError)
+			c.alert(cd, fmt.Sprintf("Rolling back: Progress deadline exceeded and failed checks exceeded threshold: %v", err),
+				true, flaggerv1.SeverityError)
 		}
 		c.rollback(cd, canaryController, meshRouter, scalerReconciler)
 		return
@@ -766,7 +780,7 @@ func (c *Controller) shouldSkipAnalysis(canary *flaggerv1.Canary, canaryControll
 	// regardless if analysis is being skipped, rollback if canary failed to progress
 	if !retriable {
 		c.recordEventWarningf(canary, "Rolling back %s.%s progress deadline exceeded %v", canary.Name, canary.Namespace, err)
-		c.alert(canary, fmt.Sprintf("Progress deadline exceeded %v", err), false, flaggerv1.SeverityError)
+		c.alert(canary, fmt.Sprintf("Rolling back %s.%s progress deadline exceeded %v", canary.Name, canary.Namespace, err), true, flaggerv1.SeverityError)
 		c.rollback(canary, canaryController, meshRouter, scalerReconciler)
 
 		return true
@@ -817,7 +831,7 @@ func (c *Controller) shouldSkipAnalysis(canary *flaggerv1.Canary, canaryControll
 	c.recordEventInfof(canary, "Promotion completed! Canary analysis was skipped for %s.%s",
 		canary.Spec.TargetRef.Name, canary.Namespace)
 	c.alert(canary, "Canary analysis was skipped, promotion finished.",
-		false, flaggerv1.SeverityInfo)
+		true, flaggerv1.SeverityInfo)
 
 	return true
 }
@@ -924,7 +938,7 @@ func (c *Controller) rollback(canary *flaggerv1.Canary, canaryController canary.
 		c.recordEventWarningf(canary, "Rolling back %s.%s failed checks threshold reached %v",
 			canary.Name, canary.Namespace, canary.Status.FailedChecks)
 		c.alert(canary, fmt.Sprintf("Failed checks threshold reached %v", canary.Status.FailedChecks),
-			false, flaggerv1.SeverityError)
+			true, flaggerv1.SeverityError)
 	}
 
 	// route all traffic back to primary
