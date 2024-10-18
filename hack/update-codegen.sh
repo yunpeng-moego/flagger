@@ -1,47 +1,49 @@
 #!/usr/bin/env bash
 
+# Copyright 2017 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(git rev-parse --show-toplevel)
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+CODEGEN_PKG=${SCRIPT_ROOT}/hack
 
-# Grab code-generator version from go.sum.
-CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | tail -1 | awk -F '/' '{print $1}')
-CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
+source "${CODEGEN_PKG}/kube_codegen.sh"
 
-echo ">> Using ${CODEGEN_PKG}"
+THIS_PKG="github.com/fluxcd/flagger"
 
-# code-generator does work with go.mod but makes assumptions about
-# the project living in `$GOPATH/src`. To work around this and support
-# any location; create a temporary directory, use this as an output
-# base, and copy everything back once generated.
-TEMP_DIR=$(mktemp -d)
-cleanup() {
-    echo ">> Removing ${TEMP_DIR}"
-    rm -rf ${TEMP_DIR}
-}
-trap "cleanup" EXIT SIGINT
+# Print the absolute path of the input directory for debugging
+INPUT_DIR=$(realpath "${SCRIPT_ROOT}/pkg/apis")
+echo ">> Input directory: ${INPUT_DIR}"
 
-echo ">> Temporary output directory ${TEMP_DIR}"
+# Ensure the input directory exists
+if [ ! -d "${INPUT_DIR}" ]; then
+    echo "Input directory ${INPUT_DIR} does not exist" >&2
+    exit 1
+fi
 
-PACKAGE_PATH_BASE="github.com/fluxcd/flagger"
-
-mkdir -p "${TEMP_DIR}/${PACKAGE_PATH_BASE}/pkg/client/informers" \
-         "${TEMP_DIR}/${PACKAGE_PATH_BASE}/pkg/client/listers" \
-         "${TEMP_DIR}/${PACKAGE_PATH_BASE}/pkg/client/clientset"
-
-# Ensure we can execute.
-chmod +x ${CODEGEN_PKG}/kube_codegen.sh
-
-source ${CODEGEN_PKG}/kube_codegen.sh kube::codegen::gen_client \
-    --output-dir "${TEMP_DIR}" \
-    --output-pkg "${PACKAGE_PATH_BASE}/pkg/client" \
-    --with-watch \
+# Generate helpers
+kube::codegen::gen_helpers \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
-    ./pkgs/apis
+    "${INPUT_DIR}"
 
-ls -lha $TEMP_DIR
-
-# Copy everything back.
-cp -r "${TEMP_DIR}/${PACKAGE_PATH_BASE}/." "${SCRIPT_ROOT}/"
+# Generate client code
+kube::codegen::gen_client \
+    --with-watch \
+    --output-dir "$(realpath "${SCRIPT_ROOT}/pkg/client")" \
+    --output-pkg "${THIS_PKG}/pkg/client" \
+    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    "${INPUT_DIR}"

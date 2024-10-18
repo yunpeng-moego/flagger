@@ -260,6 +260,8 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 	// scale down the canary target to 0 replicas after the service is pointing to the primary target
 	if cd.Status.Phase == "" || cd.Status.Phase == flaggerv1.CanaryPhaseInitializing {
 		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).
 			Infof("Scaling down %s %s.%s", cd.Spec.TargetRef.Kind, cd.Spec.TargetRef.Name, cd.Namespace)
 		if err := canaryController.ScaleToZero(cd); err != nil {
 			c.recordEventWarningf(cd, "scaling down canary %s %s.%s failed: %v", cd.Spec.TargetRef.Kind, cd.Spec.TargetRef.Name, cd.Namespace, err)
@@ -582,6 +584,8 @@ func (c *Controller) runCanary(canary *flaggerv1.Canary, canaryController canary
 				canaryWeight = nextStepWeight
 			}
 			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).
 				Infof("Running mirror step %d/%d/%t", primaryWeight, canaryWeight, mirrored)
 		} else {
 
@@ -689,6 +693,8 @@ func (c *Controller) runBlueGreen(canary *flaggerv1.Canary, canaryController can
 				c.recordEventWarningf(canary, "%v", err)
 			}
 			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).
 				Infof("Start traffic mirroring")
 		}
 		if err := canaryController.SetStatusIterations(canary, canary.Status.Iterations+1); err != nil {
@@ -848,7 +854,9 @@ func (c *Controller) shouldAdvance(canary *flaggerv1.Canary, canaryController ca
 	// Make sure to sync lastAppliedSpec even if the canary is in a failed state.
 	if canary.Status.Phase == flaggerv1.CanaryPhaseFailed {
 		if err := canaryController.SyncStatus(canary, canary.Status); err != nil {
-			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).Errorf("%v", err)
+			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).Errorf("%v", err)
 			return false, err
 		}
 	}
@@ -882,7 +890,9 @@ func (c *Controller) checkCanaryStatus(canary *flaggerv1.Canary, canaryControlle
 	var err error
 	canary, err = c.flaggerClient.FlaggerV1beta1().Canaries(canary.Namespace).Get(context.TODO(), canary.Name, metav1.GetOptions{})
 	if err != nil {
-		c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).Errorf("%v", err)
+		c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).Errorf("%v", err)
 		return false
 	}
 
@@ -910,7 +920,9 @@ func (c *Controller) checkCanaryStatus(canary *flaggerv1.Canary, canaryControlle
 			return false
 		}
 		if err := canaryController.SyncStatus(canary, flaggerv1.CanaryStatus{Phase: flaggerv1.CanaryPhaseProgressing}); err != nil {
-			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).Errorf("%v", err)
+			c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).Errorf("%v", err)
 			return false
 		}
 		c.recorder.SetStatus(canary, flaggerv1.CanaryPhaseProgressing)
@@ -970,7 +982,9 @@ func (c *Controller) rollback(canary *flaggerv1.Canary, canaryController canary.
 
 	// mark canary as failed
 	if err := canaryController.SyncStatus(canary, flaggerv1.CanaryStatus{Phase: flaggerv1.CanaryPhaseFailed, CanaryWeight: 0}); err != nil {
-		c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).Errorf("%v", err)
+		c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).Errorf("%v", err)
 		return
 	}
 

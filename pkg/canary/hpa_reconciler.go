@@ -101,7 +101,9 @@ func (hr *HPAReconciler) reconcilePrimaryHpaV2(cd *flaggerv1.Canary, hpa *hpav2.
 			return fmt.Errorf("creating HorizontalPodAutoscaler v2 %s.%s failed: %w",
 				primaryHpa.Name, primaryHpa.Namespace, err)
 		}
-		hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).Infof(
+		hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).Infof(
 			"HorizontalPodAutoscaler v2 %s.%s created", primaryHpa.GetName(), cd.Namespace)
 		return nil
 	} else if err != nil {
@@ -149,6 +151,8 @@ func (hr *HPAReconciler) reconcilePrimaryHpaV2(cd *flaggerv1.Canary, hpa *hpav2.
 					primaryHpa.Name, primaryHpa.Namespace, err)
 			}
 			hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Infof("HorizontalPodAutoscaler v2 %s.%s updated", primaryHpa.GetName(), cd.Namespace)
 		}
 	}
@@ -194,7 +198,9 @@ func (hr *HPAReconciler) reconcilePrimaryHpaV2Beta2(cd *flaggerv1.Canary, hpa *h
 			return fmt.Errorf("creating HorizontalPodAutoscaler v2beta2 %s.%s failed: %w",
 				primaryHpa.Name, primaryHpa.Namespace, err)
 		}
-		hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).Infof(
+		hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).Infof(
 			"HorizontalPodAutoscaler v2beta2 %s.%s created", primaryHpa.GetName(), cd.Namespace)
 		return nil
 	} else if err != nil {
@@ -242,6 +248,8 @@ func (hr *HPAReconciler) reconcilePrimaryHpaV2Beta2(cd *flaggerv1.Canary, hpa *h
 					primaryHpa.Name, primaryHpa.Namespace, err)
 			}
 			hr.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Infof("HorizontalPodAutoscaler v2beta2 %s.%s updated", primaryHpa.GetName(), cd.Namespace)
 		}
 	}

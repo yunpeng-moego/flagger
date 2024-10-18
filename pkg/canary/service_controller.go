@@ -113,6 +113,8 @@ func (c *ServiceController) reconcileCanaryService(canary *flaggerv1.Canary, nam
 	}
 
 	c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		With("canary_name", canary.Name).
+		With("canary_namespace", canary.Namespace).
 		Infof("Service %s.%s updated", ns.GetName(), canary.Namespace)
 	return nil
 }
@@ -144,6 +146,8 @@ func (c *ServiceController) createService(canary *flaggerv1.Canary, name string,
 	}
 
 	c.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		With("canary_name", canary.Name).
+		With("canary_namespace", canary.Namespace).
 		Infof("Service %s.%s created", svc.GetName(), canary.Namespace)
 	return nil
 }

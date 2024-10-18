@@ -19,10 +19,11 @@ package canary
 import (
 	"context"
 	"fmt"
-
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,6 +49,10 @@ type DeploymentController struct {
 func (c *DeploymentController) Initialize(cd *flaggerv1.Canary) (bool, error) {
 	if err := c.createPrimaryDeployment(cd, c.includeLabelPrefix); err != nil {
 		return true, fmt.Errorf("createPrimaryDeployment failed: %w", err)
+	}
+
+	if err := c.reconcilePrimaryPDB(cd); err != nil {
+		return true, fmt.Errorf("createPrimaryPDB failed: %w", err)
 	}
 
 	if cd.Status.Phase == "" || cd.Status.Phase == flaggerv1.CanaryPhaseInitializing {
@@ -126,6 +131,9 @@ func (c *DeploymentController) Promote(cd *flaggerv1.Canary) error {
 
 		// apply update
 		_, err = c.kubeClient.AppsV1().Deployments(cd.Namespace).Update(context.TODO(), primaryCopy, metav1.UpdateOptions{})
+
+		// sync pdb
+		err = c.reconcilePrimaryPDB(cd)
 		return err
 	})
 	if err != nil {
@@ -320,7 +328,91 @@ func (c *DeploymentController) createPrimaryDeployment(cd *flaggerv1.Canary, inc
 		}
 
 		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).
 			Infof("Deployment %s.%s created", primaryDep.GetName(), cd.Namespace)
+	}
+
+	return nil
+}
+
+// reconcilePrimaryPDB updates the PodDisruptionBudget for the primary deployment from the canary's PDB.
+func (c *DeploymentController) reconcilePrimaryPDB(cd *flaggerv1.Canary) error {
+	targetName := cd.Spec.TargetRef.Name
+
+	// Get the canary's PDB
+	canaryName := targetName
+	canaryPDB, err := c.kubeClient.PolicyV1().PodDisruptionBudgets(cd.Namespace).Get(context.TODO(), canaryName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("getting canary PDB %s.%s failed: %w", canaryName, cd.Namespace, err)
+	}
+
+	primaryName := fmt.Sprintf("%s-primary", targetName)
+	// Get the primary's PDB
+	primaryPDB, err := c.kubeClient.PolicyV1().PodDisruptionBudgets(cd.Namespace).Get(context.TODO(), primaryName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		primaryDep, err := c.kubeClient.AppsV1().Deployments(cd.Namespace).Get(context.TODO(), primaryName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("deployment %s.%s get query error: %w", primaryName, cd.Namespace, err)
+		}
+		// Create the primary PDB if it doesn't exist
+		primaryPDB = &v1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      primaryName,
+				Namespace: cd.Namespace,
+				Labels:    primaryDep.Labels,
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(cd, schema.GroupVersionKind{
+						Group:   flaggerv1.SchemeGroupVersion.Group,
+						Version: flaggerv1.SchemeGroupVersion.Version,
+						Kind:    flaggerv1.CanaryKind,
+					}),
+				},
+			},
+			Spec: v1.PodDisruptionBudgetSpec{
+				MinAvailable:               canaryPDB.Spec.MinAvailable,
+				MaxUnavailable:             canaryPDB.Spec.MaxUnavailable,
+				UnhealthyPodEvictionPolicy: canaryPDB.Spec.UnhealthyPodEvictionPolicy,
+				Selector:                   primaryDep.Spec.Selector,
+			},
+		}
+		_, err = c.kubeClient.PolicyV1().PodDisruptionBudgets(cd.Namespace).Create(context.TODO(), primaryPDB, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("creating primary PDB %s.%s failed: %w", primaryName, cd.Namespace, err)
+		}
+		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).
+			Infof("PodDisruptionBudget %s.%s created", primaryName, cd.Namespace)
+		return nil
+
+	} else if err != nil {
+		return nil
+	}
+
+	if primaryPDB != nil {
+		if cmp.Equal(primaryPDB.Spec.MinAvailable, canaryPDB.Spec.MinAvailable) &&
+			cmp.Equal(primaryPDB.Spec.MaxUnavailable, canaryPDB.Spec.MaxUnavailable) &&
+			cmp.Equal(primaryPDB.Spec.UnhealthyPodEvictionPolicy, canaryPDB.Spec.UnhealthyPodEvictionPolicy) {
+			return nil
+		}
+		// Update the primary PDB
+		primaryPDBCopy := primaryPDB.DeepCopy()
+		primaryPDBCopy.Spec.MinAvailable = canaryPDB.Spec.MinAvailable
+		primaryPDBCopy.Spec.MaxUnavailable = canaryPDB.Spec.MaxUnavailable
+		primaryPDBCopy.Spec.UnhealthyPodEvictionPolicy = canaryPDB.Spec.UnhealthyPodEvictionPolicy
+
+		_, err = c.kubeClient.PolicyV1().PodDisruptionBudgets(cd.Namespace).Update(context.TODO(), primaryPDBCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("updating primary PDB %s.%s failed: %w", primaryName, cd.Namespace, err)
+		}
+
+		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).
+			Infof("PodDisruptionBudget %s.%s updated", primaryName, cd.Namespace)
 	}
 
 	return nil

@@ -34,6 +34,7 @@ import (
 
 	flaggerv1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	istiov1alpha1 "github.com/fluxcd/flagger/pkg/apis/istio/common/v1alpha1"
+	istiov1alpha3 "github.com/fluxcd/flagger/pkg/apis/istio/v1alpha3"
 	istiov1beta1 "github.com/fluxcd/flagger/pkg/apis/istio/v1beta1"
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"
 )
@@ -53,11 +54,18 @@ const setCookieHeader = "Set-Cookie"
 const stickyRouteName = "sticky-route"
 const maxAgeAttr = "Max-Age"
 
+// TODO 优化
+const envoyNamePrefix = "ef-transcoder-"
+
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 // Reconcile creates or updates the Istio virtual service and destination rules
 func (ir *IstioRouter) Reconcile(canary *flaggerv1.Canary) error {
-	_, primaryName, canaryName := canary.GetServiceNames()
+	apexName, primaryName, canaryName := canary.GetServiceNames()
+
+	if err := ir.reconcileEnvoyFilter(canary, apexName, primaryName); err != nil {
+		return fmt.Errorf("reconcileEnvoyFilter failed: %w", err)
+	}
 
 	if err := ir.reconcileDestinationRule(canary, canaryName); err != nil {
 		return fmt.Errorf("reconcileDestinationRule failed: %w", err)
@@ -69,6 +77,67 @@ func (ir *IstioRouter) Reconcile(canary *flaggerv1.Canary) error {
 
 	if err := ir.reconcileVirtualService(canary); err != nil {
 		return fmt.Errorf("reconcileVirtualService failed: %w", err)
+	}
+	return nil
+}
+
+func (ir *IstioRouter) reconcileEnvoyFilter(canary *flaggerv1.Canary, name, primaryName string) error {
+	namespace := canary.Namespace
+	efName := envoyNamePrefix + name
+	efPrimaryName := envoyNamePrefix + primaryName
+
+	envoyFilter, err := ir.istioClient.NetworkingV1alpha3().EnvoyFilters(namespace).Get(context.TODO(), efName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("EnvoyFilter %s of canary %s.%s get query error: %w", efName, name, namespace, err)
+	}
+	envoyFilterPrimary, err := ir.istioClient.NetworkingV1alpha3().EnvoyFilters(namespace).Get(context.TODO(), efPrimaryName, metav1.GetOptions{})
+	// insert
+	if errors.IsNotFound(err) {
+		envoyFilterPrimary = &istiov1alpha3.EnvoyFilter{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      efPrimaryName,
+				Namespace: namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(canary, schema.GroupVersionKind{
+						Group:   flaggerv1.SchemeGroupVersion.Group,
+						Version: flaggerv1.SchemeGroupVersion.Version,
+						Kind:    flaggerv1.CanaryKind,
+					}),
+				},
+			},
+			Spec: istiov1alpha3.EnvoyFilterSpec{
+				WorkloadSelector: &istiov1alpha3.WorkloadSelector{
+					Labels: map[string]string{
+						"app": primaryName,
+					},
+				},
+				ConfigPatches: envoyFilter.DeepCopy().Spec.ConfigPatches,
+			},
+		}
+		_, err = ir.istioClient.NetworkingV1alpha3().EnvoyFilters(namespace).Create(context.TODO(), envoyFilterPrimary, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("EnvoyFilter %s of primary %s.%s create error: %w", efPrimaryName, name, namespace, err)
+		}
+		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, namespace)).
+			Infof("EnvoyFilter %s of primary %s.%s created", efPrimaryName, name, namespace)
+	} else if err != nil {
+		return fmt.Errorf("EnvoyFilter %s of canary %s.%s get query error: %w", efName, name, namespace, err)
+	}
+
+	// update
+	if envoyFilterPrimary != nil {
+		if diff := cmp.Diff(envoyFilter.Spec.ConfigPatches, envoyFilterPrimary.Spec.ConfigPatches); diff != "" {
+			clone := envoyFilterPrimary.DeepCopy()
+			clone.Spec.ConfigPatches = envoyFilter.DeepCopy().Spec.ConfigPatches
+			_, err = ir.istioClient.NetworkingV1alpha3().EnvoyFilters(namespace).Update(context.TODO(), clone, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("EnvoyFilter %s of primary %s.%s update error: %w", efPrimaryName, name, namespace, err)
+			}
+			ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, namespace)).
+				Infof("EnvoyFilter %s of primary %s.%s updated", efPrimaryName, name, namespace)
+		}
 	}
 	return nil
 }
@@ -103,6 +172,8 @@ func (ir *IstioRouter) reconcileDestinationRule(canary *flaggerv1.Canary, name s
 			return fmt.Errorf("DestinationRule %s.%s create error: %w", name, canary.Namespace, err)
 		}
 		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).
 			Infof("DestinationRule %s.%s created", destinationRule.GetName(), canary.Namespace)
 		return nil
 	} else if err != nil {
@@ -119,6 +190,8 @@ func (ir *IstioRouter) reconcileDestinationRule(canary *flaggerv1.Canary, name s
 				return fmt.Errorf("DestinationRule %s.%s update error: %w", name, canary.Namespace, err)
 			}
 			ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).
 				Infof("DestinationRule %s.%s updated", destinationRule.GetName(), canary.Namespace)
 		}
 	}
@@ -313,6 +386,8 @@ func (ir *IstioRouter) reconcileVirtualService(canary *flaggerv1.Canary) error {
 			return fmt.Errorf("VirtualService %s.%s create error: %w", apexName, canary.Namespace, err)
 		}
 		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).
 			Infof("VirtualService %s.%s created", virtualService.GetName(), canary.Namespace)
 		return nil
 	} else if err != nil {
@@ -369,6 +444,8 @@ func (ir *IstioRouter) reconcileVirtualService(canary *flaggerv1.Canary) error {
 				b, err := json.Marshal(virtualService.Spec)
 				if err != nil {
 					ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+						With("canary_name", canary.Name).
+						With("canary_namespace", canary.Namespace).
 						Warnf("Unable to marshal VS %s for orig-configuration annotation", virtualService.Name)
 				}
 
@@ -386,6 +463,8 @@ func (ir *IstioRouter) reconcileVirtualService(canary *flaggerv1.Canary) error {
 				return fmt.Errorf("VirtualService %s.%s update error: %w", apexName, canary.Namespace, err)
 			}
 			ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+				With("canary_name", canary.Name).
+				With("canary_namespace", canary.Namespace).
 				Infof("VirtualService %s.%s updated", virtualService.GetName(), canary.Namespace)
 		}
 	}
@@ -410,6 +489,8 @@ func (ir *IstioRouter) GetRoutes(canary *flaggerv1.Canary) (
 
 	if isTcp(canary) {
 		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).
 			Infof("Canary %s.%s uses TCP service", canary.Name, canary.Namespace)
 		var tcpRoute istiov1beta1.TCPRoute
 		for _, tcp := range vs.Spec.Tcp {
@@ -440,6 +521,8 @@ func (ir *IstioRouter) GetRoutes(canary *flaggerv1.Canary) (
 	}
 
 	ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		With("canary_name", canary.Name).
+		With("canary_namespace", canary.Namespace).
 		Infof("Canary %s.%s uses HTTP service", canary.Name, canary.Namespace)
 
 	var httpRoute istiov1beta1.HTTPRoute
@@ -700,7 +783,7 @@ func (ir *IstioRouter) SetRoutes(
 					CorsPolicy: canary.Spec.Service.CorsPolicy,
 					Headers:    canary.Spec.Service.Headers,
 					Route: []istiov1beta1.HTTPRouteDestination{
-						makeDestination(canary, primaryName, primaryWeight),
+						makeDestination(canary, primaryName, 100),
 					},
 				},
 			}
@@ -738,6 +821,8 @@ func (ir *IstioRouter) Finalize(canary *flaggerv1.Canary) error {
 		}
 	} else {
 		ir.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+			With("canary_name", canary.Name).
+			With("canary_namespace", canary.Namespace).
 			Warnf("VirtualService %s.%s original configuration not found, unable to revert", apexName, canary.Namespace)
 		return nil
 	}

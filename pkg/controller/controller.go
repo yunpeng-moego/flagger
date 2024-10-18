@@ -273,6 +273,8 @@ func (c *Controller) syncHandler(key string) error {
 		if cd.Status.Phase != flaggerv1.CanaryPhaseTerminated {
 			if err := c.finalize(cd); err != nil {
 				c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+					With("canary_name", cd.Name).
+					With("canary_namespace", cd.Namespace).
 					Errorf("Unable to finalize canary: %v", err)
 				return fmt.Errorf("unable to finalize to canary %s.%s error: %w", cd.Name, cd.Namespace, err)
 			}
@@ -281,6 +283,8 @@ func (c *Controller) syncHandler(key string) error {
 		// Remove finalizer from Canary
 		if err := c.removeFinalizer(cd); err != nil {
 			c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Errorf("Unable to remove finalizer for canary %s.%s error: %v", cd.Name, cd.Namespace, err)
 			return fmt.Errorf("unable to remove finalizer for canary %s.%s: %w", cd.Name, cd.Namespace, err)
 		}

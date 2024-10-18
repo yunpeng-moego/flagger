@@ -26,10 +26,9 @@ import (
 	appmeshv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/appmesh/v1beta1"
 	appmeshv1beta2 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/appmesh/v1beta2"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/flagger/v1beta1"
-	gatewayv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gateway/v1"
 	gatewayapiv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gatewayapi/v1"
 	gatewayapiv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gatewayapi/v1beta1"
-	gloov1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gloo/v1"
+	networkingv1alpha3 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	networkingv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/istio/v1beta1"
 	kedav1alpha1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/keda/v1alpha1"
 	kumav1alpha1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/kuma/v1alpha1"
@@ -46,13 +45,12 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApisixV2() apisixv2.ApisixV2Interface
-	AppmeshV1beta2() appmeshv1beta2.AppmeshV1beta2Interface
 	AppmeshV1beta1() appmeshv1beta1.AppmeshV1beta1Interface
+	AppmeshV1beta2() appmeshv1beta2.AppmeshV1beta2Interface
 	FlaggerV1beta1() flaggerv1beta1.FlaggerV1beta1Interface
-	GatewayV1() gatewayv1.GatewayV1Interface
-	GatewayapiV1beta1() gatewayapiv1beta1.GatewayapiV1beta1Interface
 	GatewayapiV1() gatewayapiv1.GatewayapiV1Interface
-	GlooV1() gloov1.GlooV1Interface
+	GatewayapiV1beta1() gatewayapiv1beta1.GatewayapiV1beta1Interface
+	NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface
 	NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface
 	KedaV1alpha1() kedav1alpha1.KedaV1alpha1Interface
 	KumaV1alpha1() kumav1alpha1.KumaV1alpha1Interface
@@ -66,22 +64,21 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	apisixV2          *apisixv2.ApisixV2Client
-	appmeshV1beta2    *appmeshv1beta2.AppmeshV1beta2Client
-	appmeshV1beta1    *appmeshv1beta1.AppmeshV1beta1Client
-	flaggerV1beta1    *flaggerv1beta1.FlaggerV1beta1Client
-	gatewayV1         *gatewayv1.GatewayV1Client
-	gatewayapiV1beta1 *gatewayapiv1beta1.GatewayapiV1beta1Client
-	gatewayapiV1      *gatewayapiv1.GatewayapiV1Client
-	glooV1            *gloov1.GlooV1Client
-	networkingV1beta1 *networkingv1beta1.NetworkingV1beta1Client
-	kedaV1alpha1      *kedav1alpha1.KedaV1alpha1Client
-	kumaV1alpha1      *kumav1alpha1.KumaV1alpha1Client
-	projectcontourV1  *projectcontourv1.ProjectcontourV1Client
-	splitV1alpha1     *splitv1alpha1.SplitV1alpha1Client
-	splitV1alpha2     *splitv1alpha2.SplitV1alpha2Client
-	splitV1alpha3     *splitv1alpha3.SplitV1alpha3Client
-	traefikV1alpha1   *traefikv1alpha1.TraefikV1alpha1Client
+	apisixV2           *apisixv2.ApisixV2Client
+	appmeshV1beta1     *appmeshv1beta1.AppmeshV1beta1Client
+	appmeshV1beta2     *appmeshv1beta2.AppmeshV1beta2Client
+	flaggerV1beta1     *flaggerv1beta1.FlaggerV1beta1Client
+	gatewayapiV1       *gatewayapiv1.GatewayapiV1Client
+	gatewayapiV1beta1  *gatewayapiv1beta1.GatewayapiV1beta1Client
+	networkingV1alpha3 *networkingv1alpha3.NetworkingV1alpha3Client
+	networkingV1beta1  *networkingv1beta1.NetworkingV1beta1Client
+	kedaV1alpha1       *kedav1alpha1.KedaV1alpha1Client
+	kumaV1alpha1       *kumav1alpha1.KumaV1alpha1Client
+	projectcontourV1   *projectcontourv1.ProjectcontourV1Client
+	splitV1alpha1      *splitv1alpha1.SplitV1alpha1Client
+	splitV1alpha2      *splitv1alpha2.SplitV1alpha2Client
+	splitV1alpha3      *splitv1alpha3.SplitV1alpha3Client
+	traefikV1alpha1    *traefikv1alpha1.TraefikV1alpha1Client
 }
 
 // ApisixV2 retrieves the ApisixV2Client
@@ -89,14 +86,14 @@ func (c *Clientset) ApisixV2() apisixv2.ApisixV2Interface {
 	return c.apisixV2
 }
 
-// AppmeshV1beta2 retrieves the AppmeshV1beta2Client
-func (c *Clientset) AppmeshV1beta2() appmeshv1beta2.AppmeshV1beta2Interface {
-	return c.appmeshV1beta2
-}
-
 // AppmeshV1beta1 retrieves the AppmeshV1beta1Client
 func (c *Clientset) AppmeshV1beta1() appmeshv1beta1.AppmeshV1beta1Interface {
 	return c.appmeshV1beta1
+}
+
+// AppmeshV1beta2 retrieves the AppmeshV1beta2Client
+func (c *Clientset) AppmeshV1beta2() appmeshv1beta2.AppmeshV1beta2Interface {
+	return c.appmeshV1beta2
 }
 
 // FlaggerV1beta1 retrieves the FlaggerV1beta1Client
@@ -104,9 +101,9 @@ func (c *Clientset) FlaggerV1beta1() flaggerv1beta1.FlaggerV1beta1Interface {
 	return c.flaggerV1beta1
 }
 
-// GatewayV1 retrieves the GatewayV1Client
-func (c *Clientset) GatewayV1() gatewayv1.GatewayV1Interface {
-	return c.gatewayV1
+// GatewayapiV1 retrieves the GatewayapiV1Client
+func (c *Clientset) GatewayapiV1() gatewayapiv1.GatewayapiV1Interface {
+	return c.gatewayapiV1
 }
 
 // GatewayapiV1beta1 retrieves the GatewayapiV1beta1Client
@@ -114,14 +111,9 @@ func (c *Clientset) GatewayapiV1beta1() gatewayapiv1beta1.GatewayapiV1beta1Inter
 	return c.gatewayapiV1beta1
 }
 
-// GatewayapiV1 retrieves the GatewayapiV1Client
-func (c *Clientset) GatewayapiV1() gatewayapiv1.GatewayapiV1Interface {
-	return c.gatewayapiV1
-}
-
-// GlooV1 retrieves the GlooV1Client
-func (c *Clientset) GlooV1() gloov1.GlooV1Interface {
-	return c.glooV1
+// NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
+func (c *Clientset) NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface {
+	return c.networkingV1alpha3
 }
 
 // NetworkingV1beta1 retrieves the NetworkingV1beta1Client
@@ -212,11 +204,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.appmeshV1beta2, err = appmeshv1beta2.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.appmeshV1beta1, err = appmeshv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
-	cs.appmeshV1beta1, err = appmeshv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.appmeshV1beta2, err = appmeshv1beta2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +216,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.gatewayV1, err = gatewayv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.gatewayapiV1, err = gatewayapiv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -232,11 +224,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.gatewayapiV1, err = gatewayapiv1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	cs.glooV1, err = gloov1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.networkingV1alpha3, err = networkingv1alpha3.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -294,13 +282,12 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.apisixV2 = apisixv2.New(c)
-	cs.appmeshV1beta2 = appmeshv1beta2.New(c)
 	cs.appmeshV1beta1 = appmeshv1beta1.New(c)
+	cs.appmeshV1beta2 = appmeshv1beta2.New(c)
 	cs.flaggerV1beta1 = flaggerv1beta1.New(c)
-	cs.gatewayV1 = gatewayv1.New(c)
-	cs.gatewayapiV1beta1 = gatewayapiv1beta1.New(c)
 	cs.gatewayapiV1 = gatewayapiv1.New(c)
-	cs.glooV1 = gloov1.New(c)
+	cs.gatewayapiV1beta1 = gatewayapiv1beta1.New(c)
+	cs.networkingV1alpha3 = networkingv1alpha3.New(c)
 	cs.networkingV1beta1 = networkingv1beta1.New(c)
 	cs.kedaV1alpha1 = kedav1alpha1.New(c)
 	cs.kumaV1alpha1 = kumav1alpha1.New(c)

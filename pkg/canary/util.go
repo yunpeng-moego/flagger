@@ -125,6 +125,10 @@ func includeLabelsByPrefix(labels map[string]string, includeLabelPrefixes []stri
 	return filteredLabels
 }
 
+const datadogLabel = "tags.datadoghq.com/"
+const version = "version"
+const primary = "primary"
+
 func makePrimaryLabels(labels map[string]string, labelValue string, label string) map[string]string {
 	res := make(map[string]string)
 	for k, v := range labels {
@@ -136,6 +140,8 @@ func makePrimaryLabels(labels map[string]string, labelValue string, label string
 		}
 	}
 	res[label] = labelValue
+	// add datadog labels
+	res[datadogLabel+version] = primary
 
 	return res
 }

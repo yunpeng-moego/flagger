@@ -94,12 +94,26 @@ rules:
       - patch
       - delete
   - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
       - networking.istio.io
     resources:
       - virtualservices
       - virtualservices/finalizers
       - destinationrules
       - destinationrules/finalizers
+      - envoyfilters
+      - envoyfilters/finalizers
     verbs:
       - get
       - list
@@ -182,6 +196,18 @@ rules:
     resources:
       - httpproxies
       - httpproxies/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - traefikservices
     verbs:
       - get
       - list

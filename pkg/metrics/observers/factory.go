@@ -60,10 +60,6 @@ func (factory Factory) Observer(provider string) Interface {
 		return &ContourObserver{
 			client: factory.Client,
 		}
-	case strings.HasPrefix(provider, flaggerv1.GlooProvider):
-		return &GlooObserver{
-			client: factory.Client,
-		}
 	case provider == flaggerv1.NGINXProvider:
 		return &NginxObserver{
 			client: factory.Client,

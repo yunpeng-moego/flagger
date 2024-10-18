@@ -305,7 +305,9 @@ func (c *DaemonSetController) createPrimaryDaemonSet(cd *flaggerv1.Canary, inclu
 			return fmt.Errorf("creating daemonset %s.%s failed: %w", primaryDae.Name, cd.Namespace, err)
 		}
 
-		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).Infof("DaemonSet %s.%s created", primaryDae.GetName(), cd.Namespace)
+		c.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).Infof("DaemonSet %s.%s created", primaryDae.GetName(), cd.Namespace)
 	}
 	return nil
 }
