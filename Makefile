@@ -6,7 +6,7 @@ build:
 	CGO_ENABLED=0 go build -a -o ./bin/flagger ./cmd/flagger
 
 build-image:
-	docker buildx build --platform linux/amd64 -t pingxin/flagger:$(VERSION) .
+	docker buildx build --platform linux/amd64,linux/arm64 -t pingxin/flagger:$(VERSION)  --push .
 
 tidy:
 	rm -f go.sum; go mod tidy -compat=1.22

@@ -85,7 +85,9 @@ func (sor *ScaledObjectReconciler) reconcilePrimaryScaler(cd *flaggerv1.Canary, 
 			return fmt.Errorf("creating Keda ScaledObject %s.%s failed: %w",
 				primarySo.Name, primarySo.Namespace, err)
 		}
-		sor.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).Infof(
+		sor.logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+			With("canary_name", cd.Name).
+			With("canary_namespace", cd.Namespace).Infof(
 			"Keda ScaledObject %s.%s created", primarySo.GetName(), cd.Namespace)
 		return nil
 	} else if err != nil {

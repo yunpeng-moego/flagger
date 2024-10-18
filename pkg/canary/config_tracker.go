@@ -212,6 +212,8 @@ func (ct *ConfigTracker) GetTargetConfigs(cd *flaggerv1.Canary) (map[string]Conf
 				return nil, fmt.Errorf("configmap %s.%s get query error: %w", configMapName, cd.Namespace, err)
 			}
 			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Errorf("configmap %s.%s get query failed: %w", configMapName, cd.Namespace, err)
 			continue
 		}
@@ -227,6 +229,8 @@ func (ct *ConfigTracker) GetTargetConfigs(cd *flaggerv1.Canary) (map[string]Conf
 				return nil, fmt.Errorf("secret %s.%s get query error: %v", secretName, cd.Namespace, err)
 			}
 			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Errorf("secret %s.%s get query failed: %v", secretName, cd.Namespace, err)
 			continue
 		}
@@ -285,6 +289,8 @@ func (ct *ConfigTracker) HasConfigChanged(cd *flaggerv1.Canary) (bool, error) {
 	for _, cfg := range configs {
 		if trackedConfigs[cfg.GetName()] != cfg.Checksum {
 			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Infof("%s %s has changed", cfg.Type, cfg.Name)
 			return true, nil
 		}
@@ -351,6 +357,8 @@ func (ct *ConfigTracker) CreatePrimaryConfigs(cd *flaggerv1.Canary, refs map[str
 			}
 
 			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Infof("ConfigMap %s synced", primaryConfigMap.GetName())
 		case ConfigRefSecret:
 			secret, err := ct.KubeClient.CoreV1().Secrets(cd.Namespace).Get(context.TODO(), ref.Name, metav1.GetOptions{})
@@ -405,6 +413,8 @@ func (ct *ConfigTracker) CreatePrimaryConfigs(cd *flaggerv1.Canary, refs map[str
 			}
 
 			ct.Logger.With("canary", fmt.Sprintf("%s.%s", cd.Name, cd.Namespace)).
+				With("canary_name", cd.Name).
+				With("canary_namespace", cd.Namespace).
 				Infof("Secret %s synced", primarySecret.GetName())
 		}
 	}

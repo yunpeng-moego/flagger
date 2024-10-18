@@ -25,17 +25,16 @@ import (
 	v1beta1 "github.com/fluxcd/flagger/pkg/apis/appmesh/v1beta1"
 	v1beta2 "github.com/fluxcd/flagger/pkg/apis/appmesh/v1beta2"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
-	gatewayapiv1 "github.com/fluxcd/flagger/pkg/apis/gatewayapi/v1"
+	v1 "github.com/fluxcd/flagger/pkg/apis/gatewayapi/v1"
 	gatewayapiv1beta1 "github.com/fluxcd/flagger/pkg/apis/gatewayapi/v1beta1"
-	v1 "github.com/fluxcd/flagger/pkg/apis/gloo/gateway/v1"
-	gloov1 "github.com/fluxcd/flagger/pkg/apis/gloo/gloo/v1"
+	v1alpha3 "github.com/fluxcd/flagger/pkg/apis/istio/v1alpha3"
 	istiov1beta1 "github.com/fluxcd/flagger/pkg/apis/istio/v1beta1"
 	v1alpha1 "github.com/fluxcd/flagger/pkg/apis/keda/v1alpha1"
 	kumav1alpha1 "github.com/fluxcd/flagger/pkg/apis/kuma/v1alpha1"
 	projectcontourv1 "github.com/fluxcd/flagger/pkg/apis/projectcontour/v1"
 	smiv1alpha1 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha1"
 	v1alpha2 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha2"
-	v1alpha3 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha3"
+	smiv1alpha3 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha3"
 	traefikv1alpha1 "github.com/fluxcd/flagger/pkg/apis/traefik/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -95,21 +94,13 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case flaggerv1beta1.SchemeGroupVersion.WithResource("metrictemplates"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Flagger().V1beta1().MetricTemplates().Informer()}, nil
 
-		// Group=gateway.solo.io, Version=v1
-	case v1.SchemeGroupVersion.WithResource("routetables"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Gateway().V1().RouteTables().Informer()}, nil
-
 		// Group=gatewayapi, Version=v1
-	case gatewayapiv1.SchemeGroupVersion.WithResource("httproutes"):
+	case v1.SchemeGroupVersion.WithResource("httproutes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Gatewayapi().V1().HTTPRoutes().Informer()}, nil
 
 		// Group=gatewayapi, Version=v1beta1
 	case gatewayapiv1beta1.SchemeGroupVersion.WithResource("httproutes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Gatewayapi().V1beta1().HTTPRoutes().Informer()}, nil
-
-		// Group=gloo.solo.io, Version=v1
-	case gloov1.SchemeGroupVersion.WithResource("upstreams"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Gloo().V1().Upstreams().Informer()}, nil
 
 		// Group=keda.sh, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("scaledobjects"):
@@ -118,6 +109,24 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=kuma.io, Version=v1alpha1
 	case kumav1alpha1.SchemeGroupVersion.WithResource("trafficroutes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kuma().V1alpha1().TrafficRoutes().Informer()}, nil
+
+		// Group=networking.istio.io, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("destinationrules"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().DestinationRules().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("envoyfilters"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().EnvoyFilters().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("gateways"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().Gateways().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("serviceentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().ServiceEntries().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("sidecars"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().Sidecars().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("virtualservices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().VirtualServices().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("workloadentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().WorkloadEntries().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("workloadgroups"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().WorkloadGroups().Informer()}, nil
 
 		// Group=networking.istio.io, Version=v1beta1
 	case istiov1beta1.SchemeGroupVersion.WithResource("destinationrules"):
@@ -138,7 +147,7 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Split().V1alpha2().TrafficSplits().Informer()}, nil
 
 		// Group=split.smi-spec.io, Version=v1alpha3
-	case v1alpha3.SchemeGroupVersion.WithResource("trafficsplits"):
+	case smiv1alpha3.SchemeGroupVersion.WithResource("trafficsplits"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Split().V1alpha3().TrafficSplits().Informer()}, nil
 
 		// Group=traefik.containo.us, Version=v1alpha1

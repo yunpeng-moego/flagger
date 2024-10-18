@@ -150,14 +150,6 @@ func (factory *Factory) MeshRouter(provider string, labelSelector string) Interf
 			ingressClass:  factory.ingressClass,
 			setOwnerRefs:  factory.setOwnerRefs,
 		}
-	case strings.HasPrefix(provider, flaggerv1.GlooProvider):
-		return &GlooRouter{
-			logger:        factory.logger,
-			flaggerClient: factory.flaggerClient,
-			kubeClient:    factory.kubeClient,
-			glooClient:    factory.meshClient,
-			setOwnerRefs:  factory.setOwnerRefs,
-		}
 	case provider == flaggerv1.NGINXProvider:
 		return &IngressRouter{
 			logger:            factory.logger,
