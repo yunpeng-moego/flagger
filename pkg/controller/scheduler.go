@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/fluxcd/flagger/pkg/metrics/providers"
 	"strings"
 	"time"
 
@@ -455,7 +457,17 @@ func (c *Controller) advanceCanary(name string, namespace string) {
 			return
 		}
 	} else {
-		if ok := c.runAnalysis(cd); !ok {
+		if ok, err := c.runAnalysis(cd); !ok {
+			//  skip analysis
+			if errors.Is(err, providers.ErrSkipAnalysis) {
+				if skip := c.shouldSkipAnalysis(cd, canaryController, meshRouter, scalerReconciler, err, retriable); skip {
+					return
+				}
+			}
+			//  retriable errors
+			if errors.Is(err, providers.ErrTooManyRequests) {
+				return
+			}
 			if err := canaryController.SetStatusFailedChecks(cd, cd.Status.FailedChecks+1); err != nil {
 				c.recordEventWarningf(cd, "%v", err)
 			}
@@ -752,7 +764,7 @@ func (c *Controller) runBlueGreen(canary *flaggerv1.Canary, canaryController can
 
 }
 
-func (c *Controller) runAnalysis(canary *flaggerv1.Canary) bool {
+func (c *Controller) runAnalysis(canary *flaggerv1.Canary) (bool, error) {
 	// run external checks
 	for _, webhook := range canary.GetAnalysis().Webhooks {
 		if webhook.Type == "" || webhook.Type == flaggerv1.RolloutHook {
@@ -760,22 +772,22 @@ func (c *Controller) runAnalysis(canary *flaggerv1.Canary) bool {
 			if err != nil {
 				c.recordEventWarningf(canary, "Halt %s.%s advancement external check %s failed %v",
 					canary.Name, canary.Namespace, webhook.Name, err)
-				return false
+				return false, err
 			}
 		}
 	}
 
-	ok := c.runBuiltinMetricChecks(canary)
+	//ok := c.runBuiltinMetricChecks(canary)
+	//if !ok {
+	//	return ok
+	//}
+
+	ok, err := c.runMetricChecks(canary)
 	if !ok {
-		return ok
+		return ok, err
 	}
 
-	ok = c.runMetricChecks(canary)
-	if !ok {
-		return ok
-	}
-
-	return true
+	return true, nil
 }
 
 func (c *Controller) shouldSkipAnalysis(canary *flaggerv1.Canary, canaryController canary.Controller, meshRouter router.Interface, scalerReconciler canary.ScalerReconciler, err error, retriable bool) bool {
@@ -791,6 +803,8 @@ func (c *Controller) shouldSkipAnalysis(canary *flaggerv1.Canary, canaryControll
 
 		return true
 	}
+
+	c.recordEventWarningf(canary, "Skipping analysis for %s.%s", canary.Name, canary.Namespace)
 
 	// route all traffic to primary
 	primaryWeight := c.totalWeight(canary)
